@@ -111,7 +111,7 @@ External Agents can be deployed in two ways:
 - Set Account by pointing out to the correct Litmus Core Deployment
 
 ```sh
-itmusctl config set-account  --endpoint "https://litmuschaos-vs.stage.cnxloyalty.com" --password "litmus" --username "admin"
+itmusctl config set-account  --endpoint "https://litmuschaos.somedomain.com" --password "litmus" --username "admin"
 ```
 
 - Install Litmus Agents into the required EKS cluster by giving the necessary kubeconfig 
@@ -122,11 +122,51 @@ itmusctl connect chaos-delegate \
 --project-id="a91xxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx" \
 --non-interactive \
 --kubeconfig <kubeconfig>.yaml \
---node-selector "topology.kubernetes.io/zone=us-east-1b,vpc.amazonaws.com/eniConfig=us-east-1b"
+--node-selector "topology.kubernetes.io/zone=us-east-1b"
 ```
 
 - Patch SERVER_ADDR in `agent-config.yaml` {http(s)://litmuschaos.somedomain.com/backend/query}
 
+### Using Litmus-Agents Helm chart
+
+- Use the following command to install Litmus-Agents Helm Charts and point it to the Litmus Core
+
+```sh
+helm upgrade --install litmus-agent litmuschaos/litmus-agent \
+--namespace litmus \
+--set "AGENT_NAME=external-agent-1" \
+--set "AGENT_DESCRIPTION=My first agent deployed with helm !" \
+--set "LITMUS_URL=https://litmuschaos.somedomain.com/backend/query" \
+--set "LITMUS_USERNAME=admin" \
+--set "LITMUS_PASSWORD=litmus" \
+--set "LITMUS_PROJECT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx" \
+--set "global.AGENT_MODE=cluster"
+```
+
+- Next patch `agent-config` configMap with the correct values for `SERVER_ADDR` and `VERSION`
+
+```yaml
+apiVersion: v1
+data:
+  AGENT_SCOPE: cluster
+  COMPONENTS: |
+    DEPLOYMENTS: ["app=chaos-exporter", "name=chaos-operator", "app=event-tracker", "app=workflow-controller"]
+  CUSTOM_TLS_CERT: ""
+  IS_CLUSTER_CONFIRMED: "true"
+  SERVER_ADDR: https://litmuschaos.somedoamin.com/backend/query
+  SKIP_SSL_VERIFY: "false"
+  START_TIME: "1673939061"
+  VERSION: 2.11.0
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2023-01-17T07:04:30Z"
+  name: agent-config
+  namespace: litmus
+  resourceVersion: "383571595"
+  uid: 6e5f0477-e40d-4918-be55-004429a1516b
+```
+
+- Restart the Subscriber pod if necessary.
 
 
 
